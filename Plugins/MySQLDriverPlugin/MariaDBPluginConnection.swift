@@ -511,6 +511,8 @@ final class MariaDBPluginConnection: @unchecked Sendable {
 
                     if columnTypes[i] == 255 {
                         row.append(.text(GeometryWKBParser.parse(bufferPtr)))
+                    } else if MariaDBFieldClassifier.isBit(typeRaw: columnTypes[i]) {
+                        row.append(.text(MariaDBFieldClassifier.bitFieldToString(bufferPtr)))
                     } else if columnIsBinary[i] {
                         row.append(.bytes(Data(bufferPtr)))
                     } else if let str = String(bytes: bufferPtr, encoding: .utf8) {
@@ -710,7 +712,9 @@ final class MariaDBPluginConnection: @unchecked Sendable {
                     let length = Int(resultBinds[i].length?.pointee ?? 0)
                     let buffer = resultBuffers[i].assumingMemoryBound(to: UInt8.self)
                     let data = Data(bytes: buffer, count: length)
-                    if columnIsBinary[i] {
+                    if MariaDBFieldClassifier.isBit(typeRaw: columnTypes[i]) {
+                        row.append(.text(MariaDBFieldClassifier.bitFieldToString(data)))
+                    } else if columnIsBinary[i] {
                         row.append(.bytes(data))
                     } else if let str = String(data: data, encoding: .utf8) {
                         row.append(.text(str))
@@ -956,6 +960,8 @@ final class MariaDBPluginConnection: @unchecked Sendable {
 
                             if columnTypes[i] == 255 {
                                 row.append(.text(GeometryWKBParser.parse(bufferPtr)))
+                            } else if MariaDBFieldClassifier.isBit(typeRaw: columnTypes[i]) {
+                                row.append(.text(MariaDBFieldClassifier.bitFieldToString(bufferPtr)))
                             } else if columnIsBinary[i] {
                                 row.append(.bytes(Data(bufferPtr)))
                             } else if let str = String(bytes: bufferPtr, encoding: .utf8) {
