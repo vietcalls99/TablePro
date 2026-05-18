@@ -57,7 +57,7 @@ struct ConnectionImportPreviewList: View {
                     }
                 }
                 HStack(spacing: 0) {
-                    Text(verbatim: "\(item.connection.host):\(item.connection.port)")
+                    Text(verbatim: item.connection.displaySubtitle)
                     warningText(for: item.status)
                 }
                 .font(.subheadline)
@@ -112,4 +112,5 @@ struct ConnectionImportPreviewList: View {
                 .foregroundStyle(.orange)
         }
     }
+
 }

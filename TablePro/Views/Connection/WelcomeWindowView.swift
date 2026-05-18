@@ -387,7 +387,7 @@ struct WelcomeWindowView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(linked.connection.name)
                     .lineLimit(1)
-                Text(verbatim: "\(linked.connection.host):\(linked.connection.port)")
+                Text(verbatim: linked.connection.displaySubtitle)
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
