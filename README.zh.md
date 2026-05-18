@@ -26,6 +26,10 @@
   <a href="README.vi.md">Tiếng Việt</a>
 </p>
 
+<p align="center">
+  <a href="https://trendshift.io/repositories/24114" target="_blank"><img src="https://trendshift.io/api/badge/repositories/24114" alt="TableProApp%2FTablePro | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
+</p>
+
 ---
 
 <p align="center">
