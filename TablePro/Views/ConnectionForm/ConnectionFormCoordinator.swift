@@ -540,7 +540,7 @@ final class ConnectionFormCoordinator {
                     } else {
                         AlertHelper.showErrorSheet(
                             title: String(localized: "Connection Test Failed"),
-                            message: error.localizedDescription,
+                            message: SSLHandshakeError.formatted(error),
                             window: window
                         )
                     }

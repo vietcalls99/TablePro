@@ -222,29 +222,7 @@ final class MongoDBConnection: @unchecked Sendable {
             "authSource=\(encodedAuthSource)"
         ]
 
-        if ssl.isEnabled {
-            params.append("tls=true")
-            switch ssl.mode {
-            case .preferred, .required:
-                params.append("tlsAllowInvalidCertificates=true")
-            case .verifyCa:
-                params.append("tlsAllowInvalidHostnames=true")
-            case .disabled, .verifyIdentity:
-                break
-            }
-            if ssl.verifiesCertificate, !ssl.caCertificatePath.isEmpty {
-                let encodedCaPath = ssl.caCertificatePath
-                    .addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)
-                    ?? ssl.caCertificatePath
-                params.append("tlsCAFile=\(encodedCaPath)")
-            }
-            if !ssl.clientCertificatePath.isEmpty {
-                let encodedCertPath = ssl.clientCertificatePath
-                    .addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)
-                    ?? ssl.clientCertificatePath
-                params.append("tlsCertificateKeyFile=\(encodedCertPath)")
-            }
-        }
+        params.append(contentsOf: MongoDBSSLMapping.uriParameters(for: ssl))
 
         if let rp = readPreference, !rp.isEmpty {
             params.append("readPreference=\(rp)")
@@ -322,6 +300,9 @@ final class MongoDBConnection: @unchecked Sendable {
                 let errorMsg = bsonErrorMessage(&error)
                 mongoc_client_destroy(newClient)
                 logger.error("MongoDB ping failed: \(errorMsg)")
+                if let sslError = Self.classifySSLError(errorMsg) {
+                    throw sslError
+                }
                 throw MongoDBError(code: error.code, message: errorMsg)
             }
 
@@ -1271,6 +1252,26 @@ private extension MongoDBConnection {
         #else
         return nil
         #endif
+    }
+
+    static func classifySSLError(_ message: String) -> SSLHandshakeError? {
+        let lower = message.lowercased()
+        if lower.contains("ssl handshake failed") || lower.contains("tls handshake failed") {
+            return .cipherMismatch(serverMessage: message)
+        }
+        if lower.contains("certificate verify failed") || lower.contains("ssl certificate") {
+            return .untrustedCertificate(serverMessage: message)
+        }
+        if lower.contains("hostname") && lower.contains("verification") {
+            return .hostnameMismatch(serverMessage: message)
+        }
+        if lower.contains("tls required") || lower.contains("ssl required") {
+            return .serverRejectedPlaintext(serverMessage: message)
+        }
+        if lower.contains("client certificate required") || lower.contains("peer did not return a certificate") {
+            return .clientCertRequired(serverMessage: message)
+        }
+        return nil
     }
 }
 

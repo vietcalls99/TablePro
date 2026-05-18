@@ -9,6 +9,7 @@
 import Foundation
 import Logging
 import NIOCore
+import NIOSSL
 import OracleNIO
 import OSLog
 import TableProPluginKit
@@ -116,6 +117,7 @@ final class OracleConnectionWrapper: @unchecked Sendable {
     private let password: String
     private let database: String
     private let serviceName: String
+    private let sslConfig: SSLConfiguration
 
     private struct LockedState: Sendable {
         var isConnected = false
@@ -131,25 +133,36 @@ final class OracleConnectionWrapper: @unchecked Sendable {
 
     // MARK: - Initialization
 
-    init(host: String, port: Int, user: String, password: String, database: String, serviceName: String = "") {
+    init(
+        host: String,
+        port: Int,
+        user: String,
+        password: String,
+        database: String,
+        serviceName: String = "",
+        sslConfig: SSLConfiguration = SSLConfiguration()
+    ) {
         self.host = host
         self.port = port
         self.user = user
         self.password = password
         self.database = database
         self.serviceName = serviceName
+        self.sslConfig = sslConfig
     }
 
     // MARK: - Connection
 
     func connect() async throws {
         let service = serviceName.isEmpty ? database : serviceName
+        let tls = try OracleSSLMapping.tls(for: sslConfig)
         let config = OracleNIO.OracleConnection.Configuration(
             host: host,
             port: port,
             service: .serviceName(service),
             username: user,
-            password: password
+            password: password,
+            tls: tls
         )
 
         let connectionId = Self.connectionCounter.withLock { state -> Int in
@@ -173,13 +186,41 @@ final class OracleConnectionWrapper: @unchecked Sendable {
         } catch let sqlError as OracleSQLError {
             let detail = sqlError.serverInfo?.message ?? sqlError.description
             osLogger.error("Oracle connection failed: \(detail)")
+            if let sslError = Self.classifySSLError(detail) {
+                throw sslError
+            }
             throw OracleError(message: detail, category: classifyConnectError(sqlError))
+        } catch let nioSslError as NIOSSLError {
+            let detail = String(describing: nioSslError)
+            osLogger.error("Oracle TLS error: \(detail)")
+            throw Self.classifySSLError(detail) ?? SSLHandshakeError.unknown(serverMessage: detail)
         } catch {
             let detail = String(describing: error)
             osLogger.error("Oracle connection failed: \(detail)")
+            if let sslError = Self.classifySSLError(detail) {
+                throw sslError
+            }
             throw OracleError(message: detail, category: .connectionFailed)
         }
     }
+
+    static func classifySSLError(_ message: String) -> SSLHandshakeError? {
+        let lower = message.lowercased()
+        if lower.contains("ora-28759") || lower.contains("failure to open file") && lower.contains("wallet") {
+            return .clientCertRequired(serverMessage: message)
+        }
+        if lower.contains("ora-29024") {
+            return .cipherMismatch(serverMessage: message)
+        }
+        if lower.contains("ora-28860") {
+            return .cipherMismatch(serverMessage: message)
+        }
+        if lower.contains("certificate") && (lower.contains("verify") || lower.contains("untrusted")) {
+            return .untrustedCertificate(serverMessage: message)
+        }
+        return nil
+    }
+
 
     private func classifyConnectError(_ error: OracleSQLError) -> OracleError.Category {
         let codeDescription = error.code.description

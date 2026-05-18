@@ -138,9 +138,15 @@ struct DatabaseTypeTests {
         #expect(DatabaseType.mssql.defaultSSLMode == .preferred)
     }
 
-    @Test("Binary on/off engines default SSL mode to disabled", arguments: [
+    @Test("libmariadb-family engines default SSL mode to preferred (2-pass connect)", arguments: [
         DatabaseType.mysql,
-        DatabaseType.mariadb,
+        DatabaseType.mariadb
+    ])
+    func testMariaDBClientEnginesDefaultSSLPreferred(type: DatabaseType) {
+        #expect(type.defaultSSLMode == .preferred)
+    }
+
+    @Test("Binary on/off engines default SSL mode to disabled", arguments: [
         DatabaseType.mongodb,
         DatabaseType.redis,
         DatabaseType.cassandra,
@@ -162,6 +168,31 @@ struct DatabaseTypeTests {
     @Test("Unknown future engine defaults SSL mode to disabled")
     func testUnknownEngineDefaultSSLDisabled() {
         #expect(DatabaseType(rawValue: "FutureDB").defaultSSLMode == .disabled)
+    }
+
+    @Test("Drivers with native prefer support report supportsOpportunisticTLS=true", arguments: [
+        DatabaseType.postgresql,
+        DatabaseType.redshift,
+        DatabaseType.cockroachdb,
+        DatabaseType.mysql,
+        DatabaseType.mariadb,
+        DatabaseType.mssql
+    ])
+    func testOpportunisticTLSSupported(type: DatabaseType) {
+        #expect(type.supportsOpportunisticTLS == true)
+    }
+
+    @Test("Binary-TLS drivers report supportsOpportunisticTLS=false", arguments: [
+        DatabaseType.mongodb,
+        DatabaseType.redis,
+        DatabaseType.cassandra,
+        DatabaseType.scylladb,
+        DatabaseType.clickhouse,
+        DatabaseType.oracle,
+        DatabaseType.etcd
+    ])
+    func testOpportunisticTLSUnsupported(type: DatabaseType) {
+        #expect(type.supportsOpportunisticTLS == false)
     }
 
     @Test("Unknown type round-trips via rawValue")

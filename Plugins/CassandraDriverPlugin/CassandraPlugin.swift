@@ -25,14 +25,7 @@ internal final class CassandraPlugin: NSObject, TableProPlugin, DriverPlugin {
     static let databaseDisplayName = "Cassandra / ScyllaDB"
     static let iconName = "cassandra-icon"
     static let defaultPort = 9042
-    static let additionalConnectionFields: [ConnectionField] = [
-        ConnectionField(
-            id: "sslCaCertPath",
-            label: "CA Certificate",
-            placeholder: "/path/to/ca-cert.pem",
-            section: .advanced
-        ),
-    ]
+    static let additionalConnectionFields: [ConnectionField] = []
     static let additionalDatabaseTypeIds: [String] = ["ScyllaDB"]
 
     // MARK: - UI/Capability Metadata
@@ -143,7 +136,7 @@ private actor CassandraConnectionActor {
         username: String?,
         password: String?,
         keyspace: String?,
-        sslMode: String,
+        sslMode: SSLMode,
         sslCaCertPath: String?
     ) throws {
         cluster = cass_cluster_new()
@@ -158,34 +151,36 @@ private actor CassandraConnectionActor {
             cass_cluster_set_credentials(cluster, username, password)
         }
 
-        // SSL/TLS
-        if sslMode != "Disabled" {
+        if sslMode != .disabled {
             guard let ssl = cass_ssl_new() else {
                 cass_cluster_free(cluster)
                 self.cluster = nil
                 throw CassandraPluginError.connectionFailed("Failed to create SSL context")
             }
 
-            if sslMode == "Verify CA" || sslMode == "Verify Identity" {
-                if sslMode == "Verify Identity" {
-                    let flags = Int32(CASS_SSL_VERIFY_PEER_CERT.rawValue | CASS_SSL_VERIFY_PEER_IDENTITY.rawValue)
-                    cass_ssl_set_verify_flags(ssl, flags)
-                } else {
-                    cass_ssl_set_verify_flags(ssl, Int32(CASS_SSL_VERIFY_PEER_CERT.rawValue))
-                }
+            cass_ssl_set_verify_flags(ssl, CassandraSSLMapping.verifyFlags(for: sslMode))
 
-                if let caCertPath = sslCaCertPath, !caCertPath.isEmpty,
-                   let certData = FileManager.default.contents(atPath: caCertPath),
-                   let certString = String(data: certData, encoding: .utf8) {
-                    let rc = cass_ssl_add_trusted_cert(ssl, certString)
-                    if rc != CASS_OK {
-                        Self.logger.warning("Failed to add CA certificate, proceeding without verification")
-                        cass_ssl_set_verify_flags(ssl, Int32(CASS_SSL_VERIFY_NONE.rawValue))
-                    }
+            if sslMode == .verifyCa || sslMode == .verifyIdentity {
+                guard let caCertPath = sslCaCertPath, !caCertPath.isEmpty else {
+                    cass_ssl_free(ssl)
+                    cass_cluster_free(cluster)
+                    self.cluster = nil
+                    throw SSLHandshakeError.untrustedCertificate(serverMessage: "Verify CA or Verify Identity requires a CA certificate path")
                 }
-            } else {
-                // "Preferred" / "Required" — encrypt but skip cert verification
-                cass_ssl_set_verify_flags(ssl, Int32(CASS_SSL_VERIFY_NONE.rawValue))
+                guard let certData = FileManager.default.contents(atPath: caCertPath),
+                      let certString = String(data: certData, encoding: .utf8) else {
+                    cass_ssl_free(ssl)
+                    cass_cluster_free(cluster)
+                    self.cluster = nil
+                    throw SSLHandshakeError.untrustedCertificate(serverMessage: "Could not read CA certificate at \(caCertPath)")
+                }
+                let rc = cass_ssl_add_trusted_cert(ssl, certString)
+                if rc != CASS_OK {
+                    cass_ssl_free(ssl)
+                    cass_cluster_free(cluster)
+                    self.cluster = nil
+                    throw SSLHandshakeError.untrustedCertificate(serverMessage: "CA certificate at \(caCertPath) is not a valid PEM")
+                }
             }
 
             cass_cluster_set_ssl(cluster, ssl)
@@ -228,6 +223,9 @@ private actor CassandraConnectionActor {
             cass_session_free(newSession)
             cass_cluster_free(cluster)
             self.cluster = nil
+            if let sslError = Self.classifySSLError(rc: rc, message: errorMessage) {
+                throw sslError
+            }
             throw CassandraPluginError.connectionFailed(errorMessage)
         }
 
@@ -844,6 +842,26 @@ private actor CassandraConnectionActor {
     private func escapeIdentifier(_ value: String) -> String {
         value.replacingOccurrences(of: "\"", with: "\"\"")
     }
+
+    static func classifySSLError(rc: CassError, message: String) -> SSLHandshakeError? {
+        switch rc {
+        case CASS_ERROR_SSL_NO_PEER_CERT, CASS_ERROR_SSL_INVALID_PEER_CERT:
+            return .untrustedCertificate(serverMessage: message)
+        case CASS_ERROR_SSL_IDENTITY_MISMATCH:
+            return .hostnameMismatch(serverMessage: message)
+        case CASS_ERROR_SSL_INVALID_PRIVATE_KEY, CASS_ERROR_SSL_INVALID_CERT:
+            return .clientCertRequired(serverMessage: message)
+        case CASS_ERROR_SSL_PROTOCOL_ERROR:
+            return .cipherMismatch(serverMessage: message)
+        default:
+            break
+        }
+        let lower = message.lowercased()
+        if lower.contains("ssl handshake") || lower.contains("tls handshake") || lower.contains("ssl_connect") {
+            return .cipherMismatch(serverMessage: message)
+        }
+        return nil
+    }
 }
 
 // MARK: - Raw Result
@@ -900,19 +918,18 @@ internal final class CassandraPluginDriver: PluginDatabaseDriver, @unchecked Sen
     // MARK: - Connection
 
     func connect() async throws {
-        let sslMode = config.additionalFields["sslMode"] ?? "Disabled"
-        let sslCaCertPath = config.additionalFields["sslCaCertPath"]
-
         let keyspace = config.database.isEmpty ? nil : config.database
+        let legacyCaPath = config.additionalFields["sslCaCertPath"]
+        let resolvedCaPath = config.ssl.caCertificatePath.isEmpty ? legacyCaPath : config.ssl.caCertificatePath
 
         try await connectionActor.connect(
             host: config.host,
-            port: Int(config.port) ?? 9042,
+            port: Int(config.port) ?? 9_042,
             username: config.username.isEmpty ? nil : config.username,
             password: config.password.isEmpty ? nil : config.password,
             keyspace: keyspace,
-            sslMode: sslMode,
-            sslCaCertPath: sslCaCertPath
+            sslMode: config.ssl.mode,
+            sslCaCertPath: resolvedCaPath
         )
 
         if let keyspace {
