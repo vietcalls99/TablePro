@@ -3,6 +3,7 @@
 //  TablePro
 //
 
+import AppKit
 import Foundation
 import os
 import Security
@@ -13,10 +14,27 @@ protocol ForeignAppImporter {
     var id: String { get }
     var displayName: String { get }
     var symbolName: String { get }
+    /// Canonical bundle identifier of the source app. Importers whose source
+    /// app ships in multiple editions (e.g. DBeaver Community / Enterprise)
+    /// should override `installedAppURL()` to look those up as well.
     var appBundleIdentifier: String { get }
-    func isAvailable() -> Bool
+    func installedAppURL() -> URL?
     func connectionCount() -> Int
     func importConnections(includePasswords: Bool) throws -> ForeignAppImportResult
+}
+
+extension ForeignAppImporter {
+    /// LaunchServices lookup for the source app. Returns the URL on disk if
+    /// the app is registered with macOS, regardless of whether the user has
+    /// opened it or created any data. Override to consider multiple editions.
+    func installedAppURL() -> URL? {
+        NSWorkspace.shared.urlForApplication(withBundleIdentifier: appBundleIdentifier)
+    }
+
+    /// Convenience: true when the source app is installed.
+    func isAvailable() -> Bool {
+        installedAppURL() != nil
+    }
 }
 
 // MARK: - Result
