@@ -47,11 +47,7 @@ final class FilterCoordinator {
             )
 
             parent.tabManager.mutate(at: capturedTabIndex) { $0.content.query = newQuery }
-
-            if !capturedFilters.isEmpty {
-                saveLastFilters(for: capturedTableName)
-            }
-
+            saveLastFilters(for: capturedTableName)
             parent.runQuery()
         }
     }
@@ -81,6 +77,7 @@ final class FilterCoordinator {
             )
 
             parent.tabManager.mutate(at: capturedTabIndex) { $0.content.query = newQuery }
+            clearLastFilters(for: capturedTableName)
             parent.runQuery()
         }
     }
@@ -215,6 +212,37 @@ final class FilterCoordinator {
         }
     }
 
+    enum RemoveFilterOutcome: Equatable {
+        case noChange
+        case clear
+        case reapply([TableFilter])
+    }
+
+    static func removeFilterOutcome(
+        removing filter: TableFilter,
+        from appliedFilters: [TableFilter]
+    ) -> RemoveFilterOutcome {
+        guard appliedFilters.contains(where: { $0.id == filter.id }) else { return .noChange }
+        let remaining = appliedFilters.filter { $0.id != filter.id }
+        return remaining.isEmpty ? .clear : .reapply(remaining)
+    }
+
+    func removeFilterAndReload(_ filter: TableFilter) {
+        let outcome = Self.removeFilterOutcome(
+            removing: filter,
+            from: selectedTabFilterState.appliedFilters
+        )
+        removeFilter(filter)
+        switch outcome {
+        case .noChange:
+            break
+        case .clear:
+            clearFiltersAndReload()
+        case .reapply(let remaining):
+            applyFilters(remaining)
+        }
+    }
+
     func updateFilter(_ filter: TableFilter) {
         mutateSelectedTabFilterState { state in
             if let index = state.filters.firstIndex(where: { $0.id == filter.id }) {
@@ -336,6 +364,16 @@ final class FilterCoordinator {
         guard let tab = parent.tabManager.selectedTab else { return }
         FilterSettingsStorage.shared.saveLastFilters(
             tab.filterState.appliedFilters,
+            for: tableName,
+            connectionId: parent.connectionId,
+            databaseName: tab.tableContext.databaseName,
+            schemaName: tab.tableContext.schemaName
+        )
+    }
+
+    func clearLastFilters(for tableName: String) {
+        guard let tab = parent.tabManager.selectedTab else { return }
+        FilterSettingsStorage.shared.clearLastFilters(
             for: tableName,
             connectionId: parent.connectionId,
             databaseName: tab.tableContext.databaseName,
