@@ -7,44 +7,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.46.0] - 2026-05-28
+
 ### Added
 
-- Rectangular cell selection in the data grid. Click and drag to select a range, Shift+click to extend, Cmd+click to add cells, Cmd+click a column header to select the column, Shift+Arrow to extend by one cell, Cmd+A to select the whole grid, Cmd+C to copy as TSV. (#1446)
-- BigQuery datasets show as expandable nodes in the sidebar, instead of one at a time behind a picker.
+- Rectangular cell selection in the data grid, with Shift and Cmd modifiers to extend or add cells, and Cmd+C to copy as TSV. (#1446)
+- BigQuery datasets show as expandable nodes in the sidebar instead of one at a time behind a picker.
 - OpenCode Zen as an AI provider, with free models when no key is set. (#1400)
 - Oracle Database 11g (11.1 and 11.2) now connects. (#1425)
 - Oracle connections can use a SID instead of a service name. (#1425)
 - Cmd-click a foreign key arrow (or pick Open in New Tab from the right-click menu) to open the referenced table in a new tab. (#1421)
-- Favorite a connection from the welcome screen. Starred connections appear in a Favorites section at the top of the list. (#1302)
+- Favorite a connection from the welcome screen; starred connections appear in a Favorites section at the top of the list. (#1302)
 - Text-column cells holding JSON or PHP serialized values open in the structured viewer automatically.
-- Add and remove buttons in the table structure editor, with Cmd+Shift+N to add and Cmd+Delete to remove. Empty Indexes or Foreign Keys tabs show a labelled add button. (#1319)
+- Add and remove buttons in the table structure editor (Cmd+Shift+N to add, Cmd+Delete to remove), and a labelled add button on empty Indexes or Foreign Keys tabs. (#1319)
 
 ### Changed
 
-- The query trash button now clears results too, and a Clear Results item on the right-click menu clears results alone. (#1256)
+- The query trash button clears results too, and a Clear Results item on the right-click menu clears results alone. (#1256)
 - Inserting SQL from AI Chat opens a new query tab, or fills an empty editor in place. (#1257)
 
 ### Fixed
 
-- Toolbar customizations now persist after closing and reopening a session window. (#1455)
-- Pasting rows with commas in a cell now keeps each value in its own column and preserves NULL vs the literal text "NULL".
+- Toolbar customizations persist after closing and reopening a session window. (#1455)
+- Pasting rows with commas in a cell keeps each value in its own column and preserves NULL vs the literal text "NULL".
 - BigQuery: switching to another table loads its data immediately instead of leaving the grid empty.
 - Custom and OpenAI-compatible AI providers work when the base URL ends in `/v1`. (#1400)
 - MongoDB: opening a collection no longer crashes on documents containing NaN or infinite numbers. (#1418)
-- Connecting after an app update now waits for in-progress plugin updates instead of showing "Plugin Not Installed". When no compatible plugin build exists yet, the message asks you to update TablePro. (#1380)
-- Failed saved connections now show the Test Connection troubleshooting dialog instead of a generic alert. (#1425, #483)
+- Connecting after an app update waits for in-progress plugin updates; when no compatible plugin build exists yet, the message asks you to update TablePro. (#1380)
+- Failed saved connections show the Test Connection troubleshooting dialog instead of a generic alert. (#1425, #483)
 - Oracle connection errors explain the cause in plain language instead of the driver's raw message. (#483)
 - AWS IAM authentication with a named profile reads `~/.aws/config` and supports `credential_process`, so SSO, IAM Identity Center, and assume-role profiles work. (#1291)
 - Opening a table no longer runs the initial query multiple times before data arrives.
 - iOS: Safe Mode setting survives relaunch instead of reverting to Off after iCloud sync.
 - iOS: large query results no longer crash the app; the editor keeps the rows it loaded and suggests adding LIMIT.
-- iOS: Safe Mode "Confirm Writes" now prompts before grid edits and inserts, matching the query editor.
+- iOS: Safe Mode "Confirm Writes" prompts before grid edits and inserts, matching the query editor.
 - Redshift: schema switching, table search, and contains/starts with/ends with filters now work. (#1439)
-- MCP server: turning on Require Authentication no longer hangs the first request, and now generates a default token if none exists and shows it once. (#1093)
+- MCP server: turning on Require Authentication no longer hangs the first request, generates a default token if needed, and shows it once. (#1093)
 - The Generate Token sheet focuses the Token Name field on first open. (#1093)
 - Double-clicking a CSV or TSV file when TablePro is closed opens the file directly. (#1443)
-- Opening a `.sql` file names the tab after the file instead of showing "SQL Query". (#1220)
-- Server Dashboard now shows the Slow Queries panel. The panels are in a vertical split with draggable dividers, and divider positions are remembered across launches. (#1464)
+- Opening a `.sql` file names the tab after the file instead of "SQL Query". (#1220)
+- Server Dashboard shows the Slow Queries panel, with a draggable vertical split and remembered divider positions. (#1464)
 
 ## [0.45.0] - 2026-05-26
 
@@ -2033,7 +2035,8 @@ TablePro is a native macOS database client built with SwiftUI and AppKit, design
     - Custom SQL query templates
     - Performance optimized for large datasets
 
-[Unreleased]: https://github.com/TableProApp/TablePro/compare/v0.45.0...HEAD
+[Unreleased]: https://github.com/TableProApp/TablePro/compare/v0.46.0...HEAD
+[0.46.0]: https://github.com/TableProApp/TablePro/compare/v0.45.0...v0.46.0
 [0.45.0]: https://github.com/TableProApp/TablePro/compare/v0.44.0...v0.45.0
 [0.44.0]: https://github.com/TableProApp/TablePro/compare/v0.43.3...v0.44.0
 [0.43.3]: https://github.com/TableProApp/TablePro/compare/v0.43.2...v0.43.3
