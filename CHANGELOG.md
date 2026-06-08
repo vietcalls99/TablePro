@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.50.0] - 2026-06-09
+
 ### Added
 
 - Cursor as an AI provider: use a Cursor API key or sign in with the Cursor CLI. (#1624)
@@ -2204,7 +2206,8 @@ TablePro is a native macOS database client built with SwiftUI and AppKit, design
     - Custom SQL query templates
     - Performance optimized for large datasets
 
-[Unreleased]: https://github.com/TableProApp/TablePro/compare/v0.49.1...HEAD
+[Unreleased]: https://github.com/TableProApp/TablePro/compare/v0.50.0...HEAD
+[0.50.0]: https://github.com/TableProApp/TablePro/compare/v0.49.1...v0.50.0
 [0.49.1]: https://github.com/TableProApp/TablePro/compare/v0.49.0...v0.49.1
 [0.49.0]: https://github.com/TableProApp/TablePro/compare/v0.48.0...v0.49.0
 [0.48.0]: https://github.com/TableProApp/TablePro/compare/v0.47.0...v0.48.0
